@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Secure File Manager</title>
+    <style>
+        :root {
+            --primary: #3498db;
+            --primary-dark: #2980b9;
+            --secondary: #2c3e50;
+            --danger: #e74c3c;
+            --warning: #f1c40f;
+            --success: #27ae60;
+            --code-bg: #282c34;
+            --code-text: #abb2bf;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        
+        body { background-color: #f4f7f6; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        .hidden { display: none !important; }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; color: white; transition: 0.2s; font-size: 0.9rem;}
+        .btn-primary { background: var(--primary); }
+        .btn-secondary { background: var(--secondary); }
+        .btn-danger { background: var(--danger); }
+        .btn-warning { background: var(--warning); color: #333; }
+        .btn-success { background: var(--success); }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn:hover { opacity: 0.9; }
+
+        /* INPUTS */
+        .search-box {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 200px;
+        }
+
+        /* SCreens */
+        .screen { width: 100%; height: 100%; display: flex; flex-direction: column; }
+
+        /* Start Screen */
+        #role-screen { align-items: center; justify-content: center; background: linear-gradient(135deg, #2c3e50, #3498db); }
+        .card { background: white; padding: 40px; border-radius: 12px; text-align: center; cursor: pointer; width: 220px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); transition: 0.3s; margin: 0 15px; }
+        .card:hover { transform: translateY(-5px); }
+        .icon-large { font-size: 50px; margin-bottom: 10px; display:block;}
+
+        /* Login Screen */
+        #login-screen { align-items: center; justify-content: center; }
+        .login-box { background: white; padding: 30px; border-radius: 8px; width: 350px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .form-input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; }
+
+        /* Dashboard */
+        header { background: var(--secondary); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .toolbar { padding: 10px 20px; background: white; border-bottom: 1px solid #ddd; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .breadcrumb { font-weight: bold; color: var(--secondary); font-size: 1.1rem; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+
+        /* Files Grid */
+        .file-explorer { flex: 1; padding: 20px; overflow-y: auto; background: #ecf0f1; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 20px; }
+
+        .item { background: white; padding: 15px; border-radius: 8px; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: 0.2s; position: relative; }
+        .item:hover { transform: translateY(-3px); box-shadow: 0 5px 8px rgba(0,0,0,0.1); }
+        .item.selected { background: #e3f2fd; border: 1px solid var(--primary); }
+        .item-icon { font-size: 3rem; display: block; margin-bottom: 5px; }
+
+        /* Notepad Overlay */
+        #notepad-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 100; display: none; flex-direction: column; }
+        #notepad-overlay.active { display: flex; }
+        #notepad-header { background: var(--secondary); padding: 10px 20px; color: white; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* Format Toolbar */
+        #format-toolbar { background: #f1f1f1; padding: 10px; border-bottom: 1px solid #ccc; display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+        
+        /* Format Buttons & Active State */
+        .format-btn { background: white; border: 1px solid #ccc; padding: 5px 12px; cursor: pointer; border-radius: 3px; font-weight: bold; min-width: 35px; color: #333; transition: 0.2s; }
+        .format-btn:hover { background: #e9e9e9; }
+        
+        /* THIS IS THE ACTIVE COLOR CHANGE STYLE */
+        .format-btn.active-tool { background: var(--primary); color: white; border-color: var(--primary-dark); }
+        
+        .divider { border-left: 1px solid #ccc; height: 20px; margin: 0 5px; }
+
+        /* Auto Save Toggle */
+        .autosave-wrapper { display: flex; align-items: center; gap: 5px; font-size: 0.9rem; margin-right: 15px; }
+        .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--success); }
+        input:checked + .slider:before { transform: translateX(14px); }
+
+        /* EDITOR STYLES */
+        #note-editor { flex: 1; padding: 30px; font-size: 1.1rem; border: none; outline: none; width: 100%; max-width: 1000px; margin: 0 auto; overflow-y: auto; line-height: 1.6; }
+        #note-editor[contenteditable="false"] { background-color: #fafafa; color: #555; }
+        
+        /* Highlights for Search */
+        .highlight-found { background-color: yellow; color: black; }
+
+        /* --- CODE BLOCK STYLES --- */
+        .code-container { margin: 15px 0; background: var(--code-bg); border-radius: 6px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .code-header { background: #21252b; color: #ccc; padding: 5px 15px; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+        .code-copy-btn { background: rgba(255,255,255,0.1); border: 1px solid #555; color: #fff; font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; cursor: pointer; }
+        .code-copy-btn:hover { background: rgba(255,255,255,0.2); }
+        pre.prettyprint { padding: 15px; color: var(--code-text); font-family: 'Consolas', 'Courier New', monospace; overflow-x: auto; white-space: pre; margin: 0; font-size: 0.95rem; min-height: 40px; }
+        pre.prettyprint:focus { outline: 1px solid #555; background: #2c313a; }
+
+        /* MODAL (Move) */
+        #modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 200; }
+        .modal-box { background: white; padding: 20px; border-radius: 8px; width: 300px; max-height: 400px; display: flex; flex-direction: column; }
+        .folder-list { overflow-y: auto; flex: 1; margin: 15px 0; border: 1px solid #eee; }
+        .folder-item { padding: 8px; cursor: pointer; border-bottom: 1px solid #f1f1f1; display: flex; align-items: center; gap: 10px; }
+        .folder-item:hover { background: #f9f9f9; }
+        .folder-item.active { background: #e3f2fd; color: var(--primary); font-weight: bold; }
+
+        /* Notification Toast */
+        #toast { position: fixed; top: 20px; right: 20px; background: #333; color: white; padding: 10px 20px; border-radius: 4px; opacity: 0; transition: 0.3s; pointer-events: none; z-index: 1000; }
+    </style>
+</head>
+<body>
+
+    <div id="toast"></div>
+
+    <!-- MOVE FILE MODAL -->
+    <div id="modal-overlay">
+        <div class="modal-box">
+            <h3>Move Item</h3>
+            <p style="font-size: 0.8rem; color: #666">Select destination folder:</p>
+            <div class="folder-list" id="move-folder-list">
+                <!-- Javascript will populate this -->
+            </div>
+            <div style="display:flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="closeMoveModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmMove()">Move Here</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. START SCREEN -->
+    <div id="role-screen" class="screen">
+        <h1 style="color:white; margin-bottom:40px;">Secure File System</h1>
+        <div style="display: flex;">
+            <div class="card" onclick="startSession('user')">
+                <span class="icon-large">👀</span>
+                <h2>User</h2>
+                <p>Read Only</p>
+            </div>
+            <div class="card" onclick="showLogin()">
+                <span class="icon-large">🔑</span>
+                <h2>Host</h2>
+                <p>Full Admin</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. LOGIN SCREEN -->
+    <div id="login-screen" class="screen hidden">
+        <div class="login-box">
+            <h2>Host Login</h2>
+            <form id="loginForm">
+                <input type="text" class="form-input" id="login-id" placeholder="Host ID">
+                <input type="password" class="form-input" id="login-pass" placeholder="Password">
+                <div style="display:flex; gap:10px; margin-top:10px;">
+                    <button type="button" class="btn btn-secondary" style="flex:1" onclick="logout()">Back</button>
+                    <button type="submit" class="btn btn-primary" style="flex:1">Login</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 3. DASHBOARD -->
+    <div id="dashboard-screen" class="screen hidden">
+        <header>
+            <div style="font-size: 1.2rem;">📂 Files (<span id="role-badge">Guest</span>)</div>
+            <button class="btn btn-danger" onclick="logout()">Exit</button>
+        </header>
+
+        <!-- Main Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-secondary" onclick="goUp()" id="btn-up" disabled>⬆ Up</button>
+            
+            <!-- File Search Input -->
+            <input type="text" id="file-search" class="search-box" placeholder="🔍 Search Files..." onkeyup="filterFiles()">
+            
+            <div class="breadcrumb" id="breadcrumb-path">Home</div>
+        </div>
+
+        <!-- Admin Action Toolbar -->
+        <div class="toolbar admin-tools hidden">
+            <input type="text" id="new-name" placeholder="Name..." style="padding:6px; border:1px solid #ccc; width:120px;">
+            <button class="btn btn-primary" onclick="createItem('folder')">+ Folder</button>
+            <button class="btn btn-warning" onclick="createItem('note')">+ Note</button>
+            <div class="divider"></div>
+            <button class="btn btn-secondary" id="btn-rename" onclick="renameItem()" disabled>Rename</button>
+            
+            <!-- Move Button -->
+            <button class="btn btn-primary" id="btn-move" onclick="openMoveModal()" disabled>➡ Move</button>
+            
+            <button class="btn btn-danger" id="btn-delete" onclick="deleteItem()" disabled>Delete</button>
+        </div>
+
+        <div class="file-explorer" onclick="clearSelection(event)">
+            <div class="grid" id="file-grid">
+                <p style="grid-column:1/-1; color:#777;">Loading...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. NOTEPAD -->
+    <div id="notepad-overlay">
+        <div id="notepad-header">
+            <span id="note-filename">File.txt</span>
+            <div style="display:flex; align-items:center;">
+                <!-- Auto Save Toggle -->
+                <div class="autosave-wrapper admin-tools hidden">
+                    <span>Auto-Save</span>
+                    <label class="switch">
+                        <input type="checkbox" id="autosave-toggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <button class="btn btn-secondary" style="font-size:0.8rem; margin-right:10px;" onclick="copyFullText()">📄 Copy All</button>
+                <button class="btn btn-secondary" onclick="closeNote()">Close</button>
+                <button class="btn btn-success admin-tools hidden" id="btn-save" style="margin-left:5px;" onclick="saveNoteManual()">💾 Save</button>
+            </div>
+        </div>
+        
+        <!-- Editor Toolbar -->
+        <div id="format-toolbar" class="admin-tools hidden">
+            <button class="format-btn" onclick="formatDoc('undo')" title="Undo">↩</button>
+            <button class="format-btn" onclick="formatDoc('redo')" title="Redo">↪</button>
+            <div class="divider"></div>
+            
+            <!-- Format Buttons (IDs added for coloring) -->
+            <button id="tool-bold" class="format-btn" onclick="formatDoc('bold')" title="Ctrl+B"><b>B</b></button>
+            <button id="tool-italic" class="format-btn" onclick="formatDoc('italic')" title="Ctrl+I"><i>I</i></button>
+            <button id="tool-underline" class="format-btn" onclick="formatDoc('underline')" title="Ctrl+U"><u>U</u></button>
+            
+            <div class="divider"></div>
+            <button class="format-btn" onclick="formatDoc('insertUnorderedList')">• List</button>
+            <button class="format-btn" style="background:#333; color:white;" onclick="insertCodeBlock()"> &lt;/&gt; Code </button>
+            
+            <div class="divider"></div>
+            <!-- Search Text in Editor -->
+            <div style="display:flex; align-items:center; gap:5px;">
+                <input type="text" id="editor-search-box" placeholder="Find text..." style="padding:4px; width:100px; font-size:0.8rem;">
+                <button class="format-btn" onclick="searchTextInEditor()" title="Find">🔍</button>
+            </div>
+        </div>
+
+        <div id="note-editor" contenteditable="true"></div>
+    </div>
+
+    <!-- SCRIPT -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, push, update, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // FIREBASE CONFIG
+        const firebaseConfig = {
+            apiKey: "AIzaSyA-1EARc30IYCOHuupz1diVhP5IFZjbrSs",
+            authDomain: "my-website-8c29c.firebaseapp.com",
+            databaseURL: "https://my-website-8c29c-default-rtdb.firebaseio.com",
+            projectId: "my-website-8c29c",
+            storageBucket: "my-website-8c29c.firebasestorage.app",
+            messagingSenderId: "938892629268",
+            appId: "1:938892629268:web:b9875b61f7b5b038d71e01"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const filesRef = ref(db, 'files');
+        const CREDENTIALS = { id: "naitikjain240725@gmail.com", pass: "jain0099" };
+
+        // STATE
+        let files = [];
+        let state = {
+            role: 'user', 
+            currentFolderId: null,
+            selectedId: null,
+            openNoteId: null,
+            targetMoveFolder: null
+        };
+        let autoSaveTimer = null;
+        let isAutoSaveOn = false;
+
+        // SYNC DB
+        onValue(filesRef, (snapshot) => {
+            const data = snapshot.val();
+            files = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+            renderFiles();
+        });
+
+        // ---------------- WINDOW EXPORTS (Functions called by HTML) ---------------- //
+        
+        // --- 1. SESSION ---
+        window.startSession = function(role) {
+            state.role = role;
+            document.getElementById('role-screen').classList.add('hidden');
+            document.getElementById('dashboard-screen').classList.remove('hidden');
+            
+            document.getElementById('role-badge').textContent = role === 'host' ? 'Admin' : 'View Only';
+            document.querySelectorAll('.admin-tools').forEach(el => role === 'host' ? el.classList.remove('hidden') : el.classList.add('hidden'));
+            renderFiles();
+        };
+
+        window.showLogin = () => { document.getElementById('role-screen').classList.add('hidden'); document.getElementById('login-screen').classList.remove('hidden'); };
+        
+        window.logout = function() {
+            state = { role: 'user', currentFolderId: null, selectedId: null, openNoteId: null };
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+            document.getElementById('role-screen').classList.remove('hidden');
+            closeNote();
+            isAutoSaveOn = false;
+        };
+
+        // --- 2. FILE NAV ---
+        window.goUp = function() {
+            if(state.currentFolderId) {
+                const cur = files.find(f => f.id === state.currentFolderId);
+                state.currentFolderId = cur ? cur.parent : null;
+                // Clear Search when navigating
+                document.getElementById('file-search').value = '';
+                renderFiles();
+            }
+        };
+
+        // --- 3. CRUD ---
+        window.createItem = function(type) {
+            const name = document.getElementById('new-name').value.trim() || (type==='folder'?'New Folder':'New Note');
+            push(filesRef, {
+                parent: state.currentFolderId || null,
+                type: type,
+                name: name,
+                content: '' 
+            });
+            document.getElementById('new-name').value = '';
+        };
+
+        window.selectItem = function(id, el) {
+            state.selectedId = id;
+            document.querySelectorAll('.item').forEach(i => i.classList.remove('selected'));
+            el.classList.add('selected');
+            updateButtons();
+        };
+
+        window.deleteItem = function() {
+            if(!state.selectedId || !confirm("Delete Permanently?")) return;
+            const updates = {};
+            updates['files/' + state.selectedId] = null;
+            // Recursively delete children (client side simplified)
+            const getChildren = (pid) => files.filter(f => f.parent === pid);
+            const collectDeletes = (pid) => {
+                getChildren(pid).forEach(c => {
+                    updates['files/' + c.id] = null;
+                    collectDeletes(c.id);
+                });
+            }
+            collectDeletes(state.selectedId);
+            update(ref(db), updates).then(() => showToast("Deleted"));
+        };
+
+        window.renameItem = function() {
+            if(!state.selectedId) return;
+            const file = files.find(f => f.id === state.selectedId);
+            const newName = prompt("Rename:", file.name);
+            if(newName) update(ref(db, 'files/' + state.selectedId), { name: newName });
+        };
+
+        window.clearSelection = function(e) {
+            if(e.target.classList.contains('grid') || e.target.classList.contains('file-explorer')) {
+                state.selectedId = null;
+                document.querySelectorAll('.item').forEach(i => i.classList.remove('selected'));
+                updateButtons();
+            }
+        };
+
+        // --- 4. MOVE FUNCTIONALITY (NEW) ---
+        window.openMoveModal = function() {
+            if(!state.selectedId) return;
+            const fileToMove = files.find(f => f.id === state.selectedId);
+            
+            // Generate list of folder candidates
+            const listContainer = document.getElementById('move-folder-list');
+            listContainer.innerHTML = `<div class="folder-item active" onclick="selectMoveTarget(null, this)">🏠 Root (Home)</div>`;
+            
+            // Helper to check for loops (cannot move folder into its own child)
+            const isDescendant = (childId, parentId) => {
+               if(!childId) return false;
+               if(childId === parentId) return true;
+               const child = files.find(f => f.id === childId);
+               return child && child.parent ? isDescendant(child.parent, parentId) : false;
+            };
+
+            const allFolders = files.filter(f => f.type === 'folder' && f.id !== state.selectedId);
+
+            allFolders.forEach(folder => {
+                // If moving a folder, ensure we don't move into its own child
+                if(fileToMove.type === 'folder' && isDescendant(folder.id, fileToMove.id)) return;
+                
+                const el = document.createElement('div');
+                el.className = 'folder-item';
+                el.innerHTML = `📁 ${folder.name}`;
+                el.onclick = () => window.selectMoveTarget(folder.id, el);
+                listContainer.appendChild(el);
+            });
+
+            state.targetMoveFolder = null; // Default null (root) is handled by active class
+            document.getElementById('modal-overlay').style.display = 'flex';
+        };
+
+        window.selectMoveTarget = function(id, el) {
+            state.targetMoveFolder = id;
+            document.querySelectorAll('.folder-item').forEach(i => i.classList.remove('active'));
+            el.classList.add('active');
+        };
+
+        window.confirmMove = function() {
+            if(state.selectedId) {
+                update(ref(db, 'files/' + state.selectedId), { parent: state.targetMoveFolder })
+                .then(() => showToast("Item Moved!"));
+            }
+            window.closeMoveModal();
+        };
+
+        window.closeMoveModal = () => document.getElementById('modal-overlay').style.display = 'none';
+
+
+        // --- 5. NOTE LOGIC ---
+        window.openNote = function(id) {
+            const file = files.find(f => f.id === id);
+            if(!file) return;
+
+            state.openNoteId = id;
+            const editor = document.getElementById('note-editor');
+            document.getElementById('note-filename').textContent = file.name;
+            document.getElementById('notepad-overlay').classList.add('active');
+            
+            editor.innerHTML = file.content || "";
+            
+            if(state.role === 'host') {
+                editor.setAttribute('contenteditable', 'true');
+                editor.focus();
+            } else {
+                editor.setAttribute('contenteditable', 'false');
+                editor.querySelectorAll('pre').forEach(p => p.setAttribute('contenteditable', 'false'));
+            }
+        };
+
+        window.saveNoteManual = () => saveNoteData(true);
+
+        function saveNoteData(showNotif) {
+            if(state.openNoteId && state.role === 'host') {
+                update(ref(db, 'files/' + state.openNoteId), { 
+                    content: document.getElementById('note-editor').innerHTML 
+                }).then(() => {
+                    if(showNotif) showToast("Saved!");
+                });
+            }
+        }
+
+        window.closeNote = function() {
+            document.getElementById('notepad-overlay').classList.remove('active');
+            state.openNoteId = null;
+        };
+
+        // --- 6. AUTO SAVE (NEW) ---
+        const autoSaveCheckbox = document.getElementById('autosave-toggle');
+        const editor = document.getElementById('note-editor');
+
+        autoSaveCheckbox.addEventListener('change', (e) => {
+            isAutoSaveOn = e.target.checked;
+            showToast(isAutoSaveOn ? "Auto-Save ON" : "Auto-Save OFF");
+        });
+
+        editor.addEventListener('input', () => {
+            if(state.role === 'host' && isAutoSaveOn) {
+                clearTimeout(autoSaveTimer);
+                autoSaveTimer = setTimeout(() => saveNoteData(false), 2000); // Save after 2 sec of no typing
+            }
+        });
+
+        // --- 7. FORMATTING & TOOL COLORS & SHORTCUTS (NEW) ---
+        
+        window.formatDoc = function(cmd) {
+            document.execCommand(cmd, false, null);
+            editor.focus();
+            checkToolbarStatus(); // Update colors immediately
+        };
+
+        // Listen for caret movement to update tool colors
+        document.addEventListener('selectionchange', () => {
+            if(state.openNoteId && state.role === 'host') checkToolbarStatus();
+        });
+
+        function checkToolbarStatus() {
+            try {
+                const bold = document.queryCommandState('bold');
+                const italic = document.queryCommandState('italic');
+                const underline = document.queryCommandState('underline');
+                
+                const btnBold = document.getElementById('tool-bold');
+                const btnItalic = document.getElementById('tool-italic');
+                const btnUnder = document.getElementById('tool-underline');
+
+                // Toggle class active-tool based on state
+                if(bold) btnBold.classList.add('active-tool'); else btnBold.classList.remove('active-tool');
+                if(italic) btnItalic.classList.add('active-tool'); else btnItalic.classList.remove('active-tool');
+                if(underline) btnUnder.classList.add('active-tool'); else btnUnder.classList.remove('active-tool');
+            } catch(e) {}
+        }
+
+        // Keyboard Shortcuts Override
+        editor.addEventListener('keydown', (e) => {
+            if(e.ctrlKey) {
+                const key = e.key.toLowerCase();
+                if(key === 'b') { e.preventDefault(); window.formatDoc('bold'); }
+                if(key === 'i') { e.preventDefault(); window.formatDoc('italic'); }
+                if(key === 'u') { e.preventDefault(); window.formatDoc('underline'); }
+            }
+        });
+
+        // Search in Editor (Simple Highlight)
+        window.searchTextInEditor = function() {
+            const txt = document.getElementById('editor-search-box').value;
+            if(!txt) return;
+            // Native browser Find (Most reliable)
+            if (window.find && window.getSelection) {
+                document.designMode = "on";
+                const sel = window.getSelection();
+                sel.collapse(document.body, 0);
+                
+                // Chrome/Edge/Firefox supports window.find
+                if(!window.find(txt)) {
+                    showToast("Text not found");
+                }
+                document.designMode = "off";
+            }
+        };
+
+        // --- 8. FILE SEARCH (NEW) ---
+        window.filterFiles = function() {
+            const term = document.getElementById('file-search').value.toLowerCase();
+            const grid = document.getElementById('file-grid');
+            grid.innerHTML = '';
+            
+            // Search Mode: Ignore folders, scan everything
+            let list = [];
+            
+            if(term.length > 0) {
+                // Global Search
+                document.getElementById('breadcrumb-path').textContent = "Search Results: " + term;
+                document.getElementById('btn-up').disabled = false; // allows clearing search implicitly by going up or reset
+                
+                list = files.filter(f => f.name.toLowerCase().includes(term));
+            } else {
+                // Normal Mode (Folder view)
+                // Restore logic
+                const curName = state.currentFolderId ? (files.find(f=>f.id===state.currentFolderId)?.name || 'Home') : 'Home';
+                document.getElementById('breadcrumb-path').textContent = curName;
+                document.getElementById('btn-up').disabled = !state.currentFolderId;
+                
+                list = files.filter(f => {
+                    if(state.currentFolderId === null) return !f.parent;
+                    return f.parent === state.currentFolderId;
+                });
+            }
+
+            if(list.length === 0) grid.innerHTML = '<p style="color:#888;">No items found</p>';
+
+            list.forEach(f => {
+                const el = document.createElement('div');
+                el.className = 'item';
+                el.innerHTML = `
+                    <span class="item-icon">${f.type === 'folder'?'📁':'📝'}</span>
+                    <span>${f.name.replace(/</g, "&lt;")}</span>
+                `;
+                el.onclick = (e) => { e.stopPropagation(); selectItem(f.id, el); };
+                el.ondblclick = () => {
+                    if(f.type === 'folder') {
+                        state.currentFolderId = f.id;
+                        document.getElementById('file-search').value = ''; // Reset search on enter folder
+                        renderFiles();
+                    } else {
+                        openNote(f.id);
+                    }
+                };
+                grid.appendChild(el);
+            });
+        };
+
+        function renderFiles() { window.filterFiles(); } // filterFiles now handles default render too
+        
+        function updateButtons() {
+            if(state.role==='host') {
+                const on = !!state.selectedId;
+                document.getElementById('btn-rename').disabled = !on;
+                document.getElementById('btn-delete').disabled = !on;
+                document.getElementById('btn-move').disabled = !on;
+            }
+        }
+
+        // --- UTILS ---
+        window.insertCodeBlock = function() {
+            if(state.role !== 'host') return;
+            const id = 'c' + Date.now();
+            const html = `
+                <div class="code-container" contenteditable="false">
+                    <div class="code-header">
+                        <span>Snippet</span>
+                        <button class="code-copy-btn" onclick="copySnippet('${id}')">Copy</button>
+                    </div>
+                    <pre id="${id}" class="prettyprint" contenteditable="true">Code...</pre>
+                </div><p><br></p>`;
+            document.execCommand('insertHTML', false, html);
+        };
+
+        window.copySnippet = function(id) {
+            const el = document.getElementById(id);
+            if(el) {
+                navigator.clipboard.writeText(el.innerText)
+                .then(()=>showToast("Code Copied!"))
+                .catch(()=>showToast("Err copying"));
+            }
+        };
+
+        window.copyFullText = function() {
+            navigator.clipboard.writeText(document.getElementById('note-editor').innerText)
+            .then(()=>showToast("Note Copied!"));
+        };
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.opacity = 1;
+            setTimeout(()=>t.style.opacity=0, 2500);
+        }
+
+        // Login Handler
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const u = document.getElementById('login-id').value;
+            const p = document.getElementById('login-pass').value;
+            if(u===CREDENTIALS.id && p===CREDENTIALS.pass) {
+                document.getElementById('login-screen').classList.add('hidden');
+                startSession('host');
+                showToast("Access Granted");
+            } else {
+                showToast("Invalid Credentials");
+            }
+        });
+    </script>
+</body>
+</html>
